@@ -8,7 +8,7 @@ import uuid
 import hashlib
 import struct
 import sys
-
+from tqdm import tqdm
 
 class ImageIngest:
 	
@@ -24,51 +24,56 @@ class ImageIngest:
 		# Create Collection if not available 
 		self.prepCollection()
 		self.Ingest()
-		
+
 	def Ingest(self):
 		# Load CLIP model
 		model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 		processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32", use_fast=False)
+
 		# Load Collection 
 		self.client.load_collection(collection_name=ImageIngest.collection)
-		# Loop through images
-		for filename in os.listdir(ImageIngest.image_folder):
-			if filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp")):
-				image_path = os.path.join(ImageIngest.image_folder, filename)
-				try:
-					image = Image.open(image_path).convert("RGB")
-					# Preprocess and extract features
-					inputs = processor(images=image, return_tensors="pt")
-					with torch.no_grad():
-						image_features = model.get_image_features(**inputs)
-					# Normalize vector (optional but recommended)
-					image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-					#Vector Data 
-					vector = image_features.squeeze().tolist()
-					# Generate ID
-					vector_id = self.vector_md5(vector)
-					existing = self.client.query(
-						collection_name=ImageIngest.collection,
-						filter=f'id == "{vector_id}"',
-						output_fields=["id"]
-					)
-					if existing:
-						print(f"Image already ingested.")
-					else:
-						self.client.insert( 
-							collection_name=ImageIngest.collection,
-							data=[
-								{
-									"id":self.vector_md5(image_features.squeeze().tolist()),
-									"filename":filename,
-									"embedding":image_features.squeeze().tolist(),
-									"timestamp":int(time.time())
-								}
-							])
-						print(f"Ingested - {filename}")
-				except Exception as e:
-					print(f"Error processing {filename}: {e}")
 
+		# Collect image files
+		all_images = [f for f in os.listdir(ImageIngest.image_folder)
+					  if f.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"))]
+		preIngested=0
+		ingested=0
+		# Loop with progress bar
+		for filename in tqdm(all_images, desc="Ingesting Images", unit="image"):
+			image_path = os.path.join(ImageIngest.image_folder, filename)
+			try:
+				image = Image.open(image_path).convert("RGB")
+				# Preprocess and extract features
+				inputs = processor(images=image, return_tensors="pt")
+				with torch.no_grad():
+					image_features = model.get_image_features(**inputs)
+				# Normalize vector (optional but recommended)
+				image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+				vector = image_features.squeeze().tolist()
+				vector_id = self.vector_md5(vector)
+
+				existing = self.client.query(
+					collection_name=ImageIngest.collection,
+					filter=f'id == "{vector_id}"',
+					output_fields=["id"]
+				)
+				if existing:
+					preIngested+=1
+					continue
+				else:
+					self.client.insert( 
+						collection_name=ImageIngest.collection,
+						data=[{
+							"id": vector_id,
+							"filename": filename,
+							"embedding": vector,
+							"timestamp": int(time.time())
+						}]
+					)
+					ingested+=1
+			except Exception as e:
+				print(f"\nError processing {filename}: {e}")
+		print(f"Ingested {ingested}, found duplicate {preIngested}")
 
 	def prepCollection(self):
 		# Run to Drop 

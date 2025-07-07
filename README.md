@@ -11,7 +11,7 @@ A small sample repo to learn
 1. Clone the repo "git clone git@github.com:satyamsoni/vector_image_search.git"
 2. Create virtual environment "python3 -m venv venv"
 3. Activate the virtual environment "source venv/bin/activate"
-4. Install python lib pymilvus, transformers, torch, numpy, Pillow, by "pip install <package_name>"
+4. Install python lib pymilvus, transformers, torch, numpy, Pillow,tqdm by "pip install <package_name>"
 5. Install docker if not not already installed ref : https://docs.docker.com/engine/install/ubuntu
 6. run milvus standalone "docker-compose up -d"
 7. You can verify if it is running by "docker ps"
