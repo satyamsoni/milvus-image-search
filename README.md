@@ -4,7 +4,7 @@ Vector Database Setup, Image ingestion and Search - Small Sample
 ## Purpose : 
 A small sample repo to learn 
 1. How to setup Milvus standalone in local machine
-2. Create collection and ingest images as embeddings in Vector Database using pretrqained models.
+2. Create collection and ingest images as embeddings in Vector Database using pretrained AI models.
 3. Search near match of an image in the database.
 
 ## How to setup Milvus
